@@ -62,7 +62,7 @@ try:
     with rasterio.open(DATA_DIR / "dem_chaiten.tif") as src:
         dem_data_raw = src.read(1).astype(float)
         
-        # TRUCO SIG WEB: Reducir resolución para que el navegador no se rinda al cargar la imagen
+        # TRUCO SIG WEB: Reducir resolución para que el navegador no se rinda
         stride = max(1, dem_data_raw.shape[0] // 800)
         dem_data = dem_data_raw[::stride, ::stride]
         
@@ -202,32 +202,54 @@ plugins.Fullscreen(position='topleft', title="Pantalla Completa", title_cancel="
 plugins.MeasureControl(position='topleft', primary_length_unit='kilometers', primary_area_unit='sqmeters').add_to(m)
 plugins.MiniMap(toggle_display=True, position='bottomright').add_to(m)
 
-# CAPAS DEM
+# ----------------------------------------------------------------------
+# EL ARREGLO INFALIBLE DEL DEM (MATEMÁTICA MANUAL)
+# ----------------------------------------------------------------------
 if mostrar_dem and dem_data is not None and dem_bounds_latlon is not None:
-    norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
-    
     try:
-        cmap = mpl.colormaps['terrain']
-    except Exception:
-        cmap = cm.get_cmap('terrain')
+        # 1. Normalizamos manualmente
+        d_min = float(np.nanmin(dem_data))
+        d_max = float(np.nanmax(dem_data))
         
-    rgba = (cmap(norm(dem_data)) * 255).astype(np.uint8)
-    rgba[np.isnan(dem_data)] = [0, 0, 0, 0]
-    
-    folium.raster_layers.ImageOverlay(
-        image=rgba, bounds=dem_bounds_latlon, name="DEM", opacity=0.6
-    ).add_to(m)
-    
-    try:
-        safe_vmin = float(vmin) if pd.notna(vmin) else 0.0
-        safe_vmax = float(vmax) if pd.notna(vmax) and vmax > safe_vmin else safe_vmin + 1000.0
+        if d_max > d_min:
+            dem_norm = (dem_data - d_min) / (d_max - d_min)
+        else:
+            dem_norm = np.zeros_like(dem_data)
+            
+        # 2. Aplicamos la paleta de colores sobre datos limpios
+        dem_norm_safe = np.nan_to_num(dem_norm, nan=0.0)
+        try:
+            cmap = mpl.colormaps['terrain']
+        except Exception:
+            cmap = cm.get_cmap('terrain')
+            
+        rgba_flotante = cmap(dem_norm_safe)
+        
+        # 3. Convertimos a imagen RGBA estricta (0-255)
+        rgba_img = (rgba_flotante * 255).astype(np.uint8)
+        
+        # 4. Magia Pura: Convertimos en transparente todos los píxeles del mar/vacíos (Canal Alpha = 0)
+        rgba_img[np.isnan(dem_data), 3] = 0
+        
+        # 5. Agregamos la imagen al mapa
+        folium.raster_layers.ImageOverlay(
+            image=rgba_img, 
+            bounds=dem_bounds_latlon, 
+            name="DEM", 
+            opacity=0.6
+        ).add_to(m)
+        
+        # 6. Agregamos la leyenda de colores
+        safe_vmin = d_min if pd.notna(d_min) else 0.0
+        safe_vmax = d_max if pd.notna(d_max) and d_max > safe_vmin else safe_vmin + 1000.0
+        
         colormap = bcm.LinearColormap(
             colors=['#33a02c', '#b2df8a', '#fdbf6f', '#ff7f00', '#cab2d6', '#ffffff'], 
             vmin=safe_vmin, vmax=safe_vmax, caption="Elevación DEM (m.s.n.m)"
         )
         m.add_child(colormap)
-    except Exception:
-        pass
+    except Exception as e:
+        pass # Si falla cualquier cosa matemática, simplemente no lo dibuja, pero no rompe la página.
 
 # AMENAZA
 colores_amenaza = {"Alto": "#b30000", "Moderado": "#fc8d59", "Bajo": "#fee08b"}
