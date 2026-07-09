@@ -227,29 +227,29 @@ if mostrar_amenaza and amenaza is not None:
 
 # 3. INTEGRACIÓN: TOOLTIPS MEJORADOS (HIDROGRAFÍA)
 if mostrar_hidro and hidrografia is not None:
+    fields_hidro = get_tooltip_fields(hidrografia)
     folium.GeoJson(
         hidrografia,
         name="Red Hídrica",
         tooltip=folium.GeoJsonTooltip(
-            fields=['nombre', 'tipo'], # Asegúrate que estos campos existan en el SHP
-            aliases=['Cauce:', 'Tipo:'],
+            fields=fields_hidro,
             localize=True,
             sticky=False,
             style="background-color: #F0EFEF; border: 2px solid black; border-radius: 3px;"
-        ),
+        ) if fields_hidro else None,
         style_function=lambda x: {"color": "#08519c", "weight": 2}
     ).add_to(m)
 
 # 4. INTEGRACIÓN: TOOLTIPS MEJORADOS (RED VIAL)
 if mostrar_vial and red_vial is not None:
+    fields_vial = get_tooltip_fields(red_vial)
     folium.GeoJson(
         red_vial, name="Red Vial",
         style_function=lambda x: {"color": "#4d4d4d", "weight": 2.5, "dashArray": "1"},
         tooltip=folium.GeoJsonTooltip(
-            fields=['nombre', 'tipo'], 
-            aliases=['Ruta:', 'Estado:'],
+            fields=fields_vial, 
             localize=True
-        )
+        ) if fields_vial else None
     ).add_to(m)
 
 if mostrar_pumalin and pumalin is not None:
