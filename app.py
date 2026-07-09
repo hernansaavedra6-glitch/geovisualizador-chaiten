@@ -201,20 +201,15 @@ plugins.MiniMap(toggle_display=True, position='bottomright').add_to(m)
 if mostrar_dem and dem_data is not None and dem_bounds_latlon is not None:
     norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
     
-    # Enmascarar los vacíos (el mar) para que no hagan transparente todo el mapa
-    dem_masked = np.ma.masked_invalid(dem_data)
-    
-    # Usar el colormap de matplotlib directamente
+    # VOLVEMOS AL MÉTODO ORIGINAL QUE SÍ DIBUJABA EL RELIEVE (Y ARREGLAMOS EL ERROR)
     cmap = mpl.colormaps['terrain'] 
-    rgba = cmap(norm(dem_masked))
-    rgba = (rgba * 255).astype(np.uint8)
+    rgba = (cmap(norm(dem_data)) * 255).astype(np.uint8)
     rgba[np.isnan(dem_data)] = [0, 0, 0, 0] 
     
     folium.raster_layers.ImageOverlay(image=rgba, bounds=dem_bounds_latlon, name="DEM", opacity=0.6).add_to(m)
     
     # LA BARRA DE COLORES DEL DEM A PRUEBA DE FALLOS
     try:
-        # Forzamos a que el valor máximo sea siempre mayor al mínimo para que la escala funcione
         safe_vmin = float(vmin) if pd.notna(vmin) else 0.0
         safe_vmax = float(vmax) if pd.notna(vmax) and vmax > safe_vmin else safe_vmin + 1000.0
         
