@@ -26,7 +26,7 @@ st.set_page_config(page_title="GeoVisualizador Chaitén", layout="wide", page_ic
 DATA_DIR = Path(__file__).parent / "data"
 
 # ----------------------------------------------------------------------
-# CARGA DE DATOS SEGUROS
+# CARGA DE DATOS SEGUROS Y OPTIMIZADOS
 # ----------------------------------------------------------------------
 @st.cache_data
 def cargar_vector(nombre_archivo):
@@ -41,7 +41,7 @@ def cargar_vector(nombre_archivo):
         else:
             gdf = gdf.to_crs("EPSG:4326")
             
-        # AQUÍ ESTÁ LA MAGIA: Simplifica las geometrías para que la página vuele
+        # Simplifica las geometrías para que la página cargue mucho más rápido
         gdf.geometry = gdf.geometry.simplify(0.0005)
         
         return gdf
@@ -141,21 +141,13 @@ st.sidebar.markdown("---")
 st.sidebar.info("Fuentes: IDE Chile, SERNAGEOMIN, NASA SRTM.")
 
 # ----------------------------------------------------------------------
-# FUNCIONES AUXILIARES PARA TOOLTIPS
-# ----------------------------------------------------------------------
-def get_tooltip_fields(gdf, max_fields=3):
-    if gdf is None or gdf.empty: return []
-    cols = [c for c in gdf.columns if c != 'geometry']
-    return cols[:max_fields]
-
-# ----------------------------------------------------------------------
 # MAPA PRINCIPAL E INTERFAZ
 # ----------------------------------------------------------------------
 st.title("GeoVisualizador — Exposición Territorial Chaitén")
 st.markdown("Plataforma interactiva para el análisis de riesgo modelado mediante fricción espacial (cost-distance), integrando topografía, conectividad, hidrología y conservación.")
 st.caption("Nota metodológica: El modelo de amenaza volcánica es una aproximación paramétrica basada en costo-distancia topográfica (flujos por gravedad) con fines demostrativos.")
 
-# 1. INTEGRACIÓN: SECCIÓN DE USUARIOS (NUEVO)
+# 1. INTEGRACIÓN: SECCIÓN DE USUARIOS
 st.markdown("---")
 st.subheader("👥 ¿A quién sirve esta herramienta?")
 col_user1, col_user2, col_user3 = st.columns(3)
@@ -172,7 +164,7 @@ with col_user3:
     st.markdown("#### **Comunidad y Educación**")
     st.success("Recurso para que los habitantes comprendan la geomorfología de su entorno y los flujos naturales de riesgo.")
 
-# 2. INTEGRACIÓN: DASHBOARD DE MÉTRICAS (NUEVO)
+# 2. INTEGRACIÓN: DASHBOARD DE MÉTRICAS
 st.markdown("---")
 st.subheader("📊 Dashboard de Vulnerabilidad Crítica")
 m1, m2, m3 = st.columns(3)
@@ -229,44 +221,53 @@ if mostrar_amenaza and amenaza is not None:
         ).add_to(fg_amenaza)
     fg_amenaza.add_to(m)
 
-# 3. INTEGRACIÓN: TOOLTIPS MEJORADOS (HIDROGRAFÍA)
+# 3. INTEGRACIÓN: TOOLTIPS A PRUEBA DE FALLOS (HIDROGRAFÍA)
 if mostrar_hidro and hidrografia is not None:
-    fields_hidro = get_tooltip_fields(hidrografia)
+    cols_hidro = [c for c in hidrografia.columns if c != 'geometry']
     folium.GeoJson(
         hidrografia,
         name="Red Hídrica",
-        tooltip=folium.GeoJsonTooltip(
-            fields=fields_hidro,
-            localize=True,
-            sticky=False,
-            style="background-color: #F0EFEF; border: 2px solid black; border-radius: 3px;"
-        ) if fields_hidro else None,
+        tooltip=folium.GeoJsonTooltip(fields=cols_hidro, localize=True) if cols_hidro else "Río / Estero",
         style_function=lambda x: {"color": "#08519c", "weight": 2}
     ).add_to(m)
 
-# 4. INTEGRACIÓN: TOOLTIPS MEJORADOS (RED VIAL)
+# 4. INTEGRACIÓN: TOOLTIPS A PRUEBA DE FALLOS (RED VIAL)
 if mostrar_vial and red_vial is not None:
-    fields_vial = get_tooltip_fields(red_vial)
+    cols_vial = [c for c in red_vial.columns if c != 'geometry']
     folium.GeoJson(
         red_vial, name="Red Vial",
         style_function=lambda x: {"color": "#4d4d4d", "weight": 2.5, "dashArray": "1"},
-        tooltip=folium.GeoJsonTooltip(
-            fields=fields_vial, 
-            localize=True
-        ) if fields_vial else None
+        tooltip=folium.GeoJsonTooltip(fields=cols_vial, localize=True) if cols_vial else "Red Vial Chaitén"
     ).add_to(m)
 
+# 5. PARQUE PUMALÍN (Con nombre oficial)
 if mostrar_pumalin and pumalin is not None:
-    folium.GeoJson(pumalin, name="Parque Pumalín", style_function=lambda x: {"color": "#1a9850", "fillColor": "#1a9850", "weight": 2.5, "fillOpacity": 0.25}).add_to(m)
+    folium.GeoJson(
+        pumalin, 
+        name="Parque Pumalín", 
+        style_function=lambda x: {"color": "#1a9850", "fillColor": "#1a9850", "weight": 2.5, "fillOpacity": 0.25},
+        tooltip="Parque Nacional Pumalín (Área de Conservación)"
+    ).add_to(m)
 
+# 6. LÍMITE COMUNAL (Con nombre oficial)
 if mostrar_limite and limite is not None:
-    folium.GeoJson(limite, name="Límite comunal", style_function=lambda x: {"color": "#000000", "weight": 3, "fillOpacity": 0, "dashArray": "15, 10"}).add_to(m)
+    folium.GeoJson(
+        limite, 
+        name="Límite comunal", 
+        style_function=lambda x: {"color": "#000000", "weight": 3, "fillOpacity": 0, "dashArray": "15, 10"},
+        tooltip="Límite Comunal Chaitén"
+    ).add_to(m)
 
+# 7. MARCADOR DEL VOLCÁN
 if mostrar_amenaza and volcan is not None:
     for _, row in volcan.iterrows():
-        folium.Marker([row.geometry.y, row.geometry.x], tooltip="Cráter Volcán Chaitén", icon=folium.Icon(color="black", icon="fire", prefix="fa")).add_to(m)
+        folium.Marker(
+            [row.geometry.y, row.geometry.x], 
+            tooltip="🌋 Cráter Volcán Chaitén", 
+            icon=folium.Icon(color="black", icon="fire", prefix="fa")
+        ).add_to(m)
 
-# 5. INTEGRACIÓN: LEYENDA FLOTANTE (NUEVO)
+# LEYENDA FLOTANTE
 leyenda_html = '''
      <div style="position: fixed; 
      bottom: 50px; left: 50px; width: 170px; height: 130px; 
@@ -287,7 +288,7 @@ LayerControl(collapsed=False).add_to(m)
 st_folium(m, width=None, height=600)
 
 # ----------------------------------------------------------------------
-# GRÁFICOS Y TABLAS (SIN CAMBIOS)
+# GRÁFICOS Y TABLAS 
 # ----------------------------------------------------------------------
 st.markdown("---")
 col1, col2 = st.columns([1, 1])
