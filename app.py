@@ -56,11 +56,16 @@ amenaza = cargar_vector("amenaza_volcanica.shp")
 volcan = cargar_vector("volcan_chaiten.shp")
 red_vial = cargar_vector("red_vial.shp")
 
-# --- CARGA DEL DEM CON REPROYECCIÓN DE LÍMITES ---
+# --- CARGA DEL DEM CON REDUCCIÓN DE PESO PARA LA WEB ---
 dem_data, dem_bounds_latlon, vmin, vmax = (None, None, None, None)
 try:
     with rasterio.open(DATA_DIR / "dem_chaiten.tif") as src:
-        dem_data = src.read(1).astype(float)
+        dem_data_raw = src.read(1).astype(float)
+        
+        # TRUCO SIG WEB: Reducir resolución para que el navegador no se rinda al cargar la imagen
+        stride = max(1, dem_data_raw.shape[0] // 800)
+        dem_data = dem_data_raw[::stride, ::stride]
+        
         if src.nodata is not None:
             dem_data = np.where(dem_data == src.nodata, np.nan, dem_data)
         vmin, vmax = float(np.nanmin(dem_data)), float(np.nanmax(dem_data))
@@ -197,33 +202,25 @@ plugins.Fullscreen(position='topleft', title="Pantalla Completa", title_cancel="
 plugins.MeasureControl(position='topleft', primary_length_unit='kilometers', primary_area_unit='sqmeters').add_to(m)
 plugins.MiniMap(toggle_display=True, position='bottomright').add_to(m)
 
-# CAPAS
+# CAPAS DEM
 if mostrar_dem and dem_data is not None and dem_bounds_latlon is not None:
     norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
     
-    # 1. Crear copia segura sin datos nulos para la paleta de colores
-    dem_safe = np.nan_to_num(dem_data, nan=vmin)
-    
-    # 2. Llamar al mapa de colores correctamente
     try:
         cmap = mpl.colormaps['terrain']
-    except AttributeError:
+    except Exception:
         cmap = cm.get_cmap('terrain')
         
-    # 3. MAGIA TÉCNICA: bytes=True devuelve directamente la imagen en formato web (evita corrupciones visuales)
-    rgba = cmap(norm(dem_safe), bytes=True)
+    rgba = (cmap(norm(dem_data)) * 255).astype(np.uint8)
+    rgba[np.isnan(dem_data)] = [0, 0, 0, 0]
     
-    # 4. Volver a hacer transparente el mar para que no tape el mapa de fondo
-    rgba[np.isnan(dem_data)] = [0, 0, 0, 0] 
+    folium.raster_layers.ImageOverlay(
+        image=rgba, bounds=dem_bounds_latlon, name="DEM", opacity=0.6
+    ).add_to(m)
     
-    # Añadir imagen al mapa
-    folium.raster_layers.ImageOverlay(image=rgba, bounds=dem_bounds_latlon, name="DEM", opacity=0.6).add_to(m)
-    
-    # LA BARRA DE COLORES DEL DEM
     try:
         safe_vmin = float(vmin) if pd.notna(vmin) else 0.0
         safe_vmax = float(vmax) if pd.notna(vmax) and vmax > safe_vmin else safe_vmin + 1000.0
-        
         colormap = bcm.LinearColormap(
             colors=['#33a02c', '#b2df8a', '#fdbf6f', '#ff7f00', '#cab2d6', '#ffffff'], 
             vmin=safe_vmin, vmax=safe_vmax, caption="Elevación DEM (m.s.n.m)"
