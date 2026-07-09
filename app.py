@@ -212,12 +212,19 @@ if mostrar_dem and dem_data is not None and dem_bounds_latlon is not None:
     
     folium.raster_layers.ImageOverlay(image=rgba, bounds=dem_bounds_latlon, name="DEM", opacity=0.6).add_to(m)
     
-    # LA BARRA DE COLORES DEL DEM QUE TENÍAMOS (¡Recuperada!)
-    colormap = bcm.LinearColormap(
-        colors=['#33a02c', '#b2df8a', '#fdbf6f', '#ff7f00', '#cab2d6', '#ffffff'], 
-        vmin=vmin, vmax=vmax, caption="Elevación DEM (m.s.n.m)"
-    )
-    m.add_child(colormap)
+    # LA BARRA DE COLORES DEL DEM A PRUEBA DE FALLOS
+    try:
+        # Forzamos a que el valor máximo sea siempre mayor al mínimo para que la escala funcione
+        safe_vmin = float(vmin) if pd.notna(vmin) else 0.0
+        safe_vmax = float(vmax) if pd.notna(vmax) and vmax > safe_vmin else safe_vmin + 1000.0
+        
+        colormap = bcm.LinearColormap(
+            colors=['#33a02c', '#b2df8a', '#fdbf6f', '#ff7f00', '#cab2d6', '#ffffff'], 
+            vmin=safe_vmin, vmax=safe_vmax, caption="Elevación DEM (m.s.n.m)"
+        )
+        m.add_child(colormap)
+    except Exception:
+        pass
 
 # AMENAZA
 colores_amenaza = {"Alto": "#b30000", "Moderado": "#fc8d59", "Bajo": "#fee08b"}
