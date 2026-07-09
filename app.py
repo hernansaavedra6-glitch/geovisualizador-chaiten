@@ -16,6 +16,7 @@ from streamlit_folium import st_folium
 import plotly.express as px
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
+import matplotlib as mpl # Añadido para solucionar el error del DEM
 from pathlib import Path
 import shapely.geometry
 import branca.colormap as bcm
@@ -199,7 +200,8 @@ plugins.MiniMap(toggle_display=True, position='bottomright').add_to(m)
 # CAPAS
 if mostrar_dem and dem_data is not None and dem_bounds_latlon is not None:
     norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
-    cmap = cm.get_cmap("terrain")
+    # LÍNEA CORREGIDA PARA SOLUCIONAR EL ERROR DE MATPLOTLIB
+    cmap = mpl.colormaps['terrain'] 
     rgba = (cmap(norm(dem_data)) * 255).astype(np.uint8)
     rgba[np.isnan(dem_data)] = [0, 0, 0, 0] 
     folium.raster_layers.ImageOverlay(image=rgba, bounds=dem_bounds_latlon, name="DEM", opacity=0.6).add_to(m)
