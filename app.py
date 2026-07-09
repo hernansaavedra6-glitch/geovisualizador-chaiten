@@ -40,6 +40,10 @@ def cargar_vector(nombre_archivo):
             gdf = gdf.set_crs("EPSG:4326")
         else:
             gdf = gdf.to_crs("EPSG:4326")
+            
+        # AQUÍ ESTÁ LA MAGIA: Simplifica las geometrías para que la página vuele
+        gdf.geometry = gdf.geometry.simplify(0.0005)
+        
         return gdf
     except Exception:
         return None
