@@ -201,18 +201,22 @@ plugins.MiniMap(toggle_display=True, position='bottomright').add_to(m)
 if mostrar_dem and dem_data is not None and dem_bounds_latlon is not None:
     norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
     
-    # EL ARREGLO DEFINITIVO: Transformar los NaNs a un valor seguro temporalmente
+    # 1. Crear copia segura sin datos nulos para la paleta de colores
     dem_safe = np.nan_to_num(dem_data, nan=vmin)
     
-    cmap = mpl.colormaps['terrain'] 
-    rgba = cmap(norm(dem_safe))
+    # 2. Llamar al mapa de colores correctamente
+    try:
+        cmap = mpl.colormaps['terrain']
+    except AttributeError:
+        cmap = cm.get_cmap('terrain')
+        
+    # 3. MAGIA TÉCNICA: bytes=True devuelve directamente la imagen en formato web (evita corrupciones visuales)
+    rgba = cmap(norm(dem_safe), bytes=True)
     
-    # Volver a hacer transparente el mar/vacíos
+    # 4. Volver a hacer transparente el mar para que no tape el mapa de fondo
     rgba[np.isnan(dem_data)] = [0, 0, 0, 0] 
     
-    # Asegurar el formato correcto de imagen para Folium
-    rgba = (rgba * 255).astype(np.uint8)
-    
+    # Añadir imagen al mapa
     folium.raster_layers.ImageOverlay(image=rgba, bounds=dem_bounds_latlon, name="DEM", opacity=0.6).add_to(m)
     
     # LA BARRA DE COLORES DEL DEM
