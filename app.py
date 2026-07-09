@@ -14,9 +14,9 @@ from folium import plugins
 from folium import LayerControl
 from streamlit_folium import st_folium
 import plotly.express as px
+import matplotlib as mpl
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
-import matplotlib as mpl # Añadido para solucionar el error del DEM
 from pathlib import Path
 import shapely.geometry
 import branca.colormap as bcm
@@ -200,11 +200,24 @@ plugins.MiniMap(toggle_display=True, position='bottomright').add_to(m)
 # CAPAS
 if mostrar_dem and dem_data is not None and dem_bounds_latlon is not None:
     norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
-    # LÍNEA CORREGIDA PARA SOLUCIONAR EL ERROR DE MATPLOTLIB
+    
+    # Enmascarar los vacíos (el mar) para que no hagan transparente todo el mapa
+    dem_masked = np.ma.masked_invalid(dem_data)
+    
+    # Usar el colormap de matplotlib directamente
     cmap = mpl.colormaps['terrain'] 
-    rgba = (cmap(norm(dem_data)) * 255).astype(np.uint8)
+    rgba = cmap(norm(dem_masked))
+    rgba = (rgba * 255).astype(np.uint8)
     rgba[np.isnan(dem_data)] = [0, 0, 0, 0] 
+    
     folium.raster_layers.ImageOverlay(image=rgba, bounds=dem_bounds_latlon, name="DEM", opacity=0.6).add_to(m)
+    
+    # LA BARRA DE COLORES DEL DEM QUE TENÍAMOS (¡Recuperada!)
+    colormap = bcm.LinearColormap(
+        colors=['#33a02c', '#b2df8a', '#fdbf6f', '#ff7f00', '#cab2d6', '#ffffff'], 
+        vmin=vmin, vmax=vmax, caption="Elevación DEM (m.s.n.m)"
+    )
+    m.add_child(colormap)
 
 # AMENAZA
 colores_amenaza = {"Alto": "#b30000", "Moderado": "#fc8d59", "Bajo": "#fee08b"}
