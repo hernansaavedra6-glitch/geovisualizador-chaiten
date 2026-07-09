@@ -201,14 +201,21 @@ plugins.MiniMap(toggle_display=True, position='bottomright').add_to(m)
 if mostrar_dem and dem_data is not None and dem_bounds_latlon is not None:
     norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
     
-    # VOLVEMOS AL MÉTODO ORIGINAL QUE SÍ DIBUJABA EL RELIEVE (Y ARREGLAMOS EL ERROR)
+    # EL ARREGLO DEFINITIVO: Transformar los NaNs a un valor seguro temporalmente
+    dem_safe = np.nan_to_num(dem_data, nan=vmin)
+    
     cmap = mpl.colormaps['terrain'] 
-    rgba = (cmap(norm(dem_data)) * 255).astype(np.uint8)
+    rgba = cmap(norm(dem_safe))
+    
+    # Volver a hacer transparente el mar/vacíos
     rgba[np.isnan(dem_data)] = [0, 0, 0, 0] 
+    
+    # Asegurar el formato correcto de imagen para Folium
+    rgba = (rgba * 255).astype(np.uint8)
     
     folium.raster_layers.ImageOverlay(image=rgba, bounds=dem_bounds_latlon, name="DEM", opacity=0.6).add_to(m)
     
-    # LA BARRA DE COLORES DEL DEM A PRUEBA DE FALLOS
+    # LA BARRA DE COLORES DEL DEM
     try:
         safe_vmin = float(vmin) if pd.notna(vmin) else 0.0
         safe_vmax = float(vmax) if pd.notna(vmax) and vmax > safe_vmin else safe_vmin + 1000.0
