@@ -22,7 +22,7 @@ import branca.colormap as bcm
 
 st.set_page_config(page_title="GeoVisualizador Chaitén", layout="wide", page_icon="🌋")
 
-DATA_DIR = Path(__file__).parent / "data"
+DATA_DIR = Path(__file__).parent / "Datos"
 
 # ----------------------------------------------------------------------
 # CARGA DE DATOS SEGUROS
