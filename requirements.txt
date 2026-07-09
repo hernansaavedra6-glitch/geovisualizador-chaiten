@@ -8,3 +8,4 @@ streamlit-folium
 plotly
 shapely
 branca
+matplotlib
